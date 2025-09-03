@@ -37,19 +37,32 @@ A Python project for downloading and managing CBZ files.
 
 4. **Install dependencies:**
    ```sh
-pip install requests
-pip install beautifulsoup4
-pip install playwright
-python -m playwright install
+   pip install -r requirements.txt
+   ```
+   If you don't have a `requirements.txt`, install manually:
+   ```sh
+   pip install requests pillow playwright
+   python -m playwright install
    ```
 
 ## Usage
 
-Run the main script (replace `main.py` with your entry point if different):
+Run the main script:
 
 ```sh
-python main.py
+python weebcentral.py
 ```
+
+You will be prompted to enter the page URL of the chapter you want to download.
+
+## Output
+
+- CBZ files will be saved in the `out/<series title>/` directory.
+
+## Notes
+
+- The script uses [Playwright](https://playwright.dev/python/) for browser automation. The first run may download browser binaries.
+- Make sure you have a stable internet connection for downloading images and browser automation.
 
 ## Contributing
 

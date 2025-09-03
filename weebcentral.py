@@ -6,15 +6,23 @@ import zipfile
 import requests
 from PIL import Image
 from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+import shutil
+import tempfile
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 def fetch_chapter_images(url, min_height=840):
     with sync_playwright() as p:
-        # browser = p.firefox.launch(headless=True)
-        browser = p.firefox.launch(headless=False)
-        page = browser.new_page()
-        print(f"🌐 Opening page: {url}")
-        page.goto(url, timeout=60000, wait_until="networkidle")
+        try:
+            browser = p.firefox.launch(headless=False)
+            page = browser.new_page()
+            logging.info(f"🌐 Opening page: {url}")
+            page.goto(url, timeout=60000, wait_until="networkidle")
+        except Exception as e:
+            logging.error(f"Failed to open browser or page: {e}")
+            return
 
         full_title = page.title()
         title_split = full_title.split('|')
@@ -38,8 +46,9 @@ def fetch_chapter_images(url, min_height=840):
     if not image_urls:
         print("❌ No images found on page.")
         return
-
-    clear_temp()
+    
+    # Use tempfile for temp dir
+    temp_dir = tempfile.mkdtemp()
 
     images = []
     for idx, img_url in enumerate(image_urls, start=1):
@@ -79,7 +88,7 @@ def fetch_chapter_images(url, min_height=840):
             # Save to memory list for CBZ
             # filename = f"page_{len(images)+1:03d}.png"
             filename = f"{int(chapter):04d}-{len(images)+1:03d}.png"
-            path = os.path.join("temp", filename)
+            path = os.path.join(temp_dir, filename)
             img.convert("RGB").save(path, "PNG", quality=100)
             images.append(path)
 
@@ -107,22 +116,10 @@ def fetch_chapter_images(url, min_height=840):
         for path in images:
             cbz.write(path, os.path.basename(path))
 
-    clear_temp()
+    #clear temp directory
+    shutil.rmtree(temp_dir)
 
-    print(f"✅ Saved {len(images)} images into {cbz_name}")
-
-def clear_temp():
-    temp_dir = "temp"
-    os.makedirs(temp_dir, exist_ok=True)
-    for filename in os.listdir(temp_dir):
-        file_path = os.path.join(temp_dir, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)  # remove file or symlink
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)  # remove subdirectory
-        except Exception as e:
-            print(f"Failed to delete {file_path}: {e}")
+    logging.info(f"✅ Saved {len(images)} images into {cbz_name}")
 
 if __name__ == "__main__":
     chapter_url = input("Enter page URL: ").strip()
