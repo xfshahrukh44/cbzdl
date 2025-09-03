@@ -5,56 +5,54 @@ import random
 import zipfile
 import requests
 from PIL import Image
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 import shutil
 import tempfile
 import logging
+import asyncio
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-url = ''
+# url = ''
 min_height = 840
-title = None
-chapter = None
-image_urls = []
-cookie_dict = {}
-images = []
 temp_dir = tempfile.mkdtemp()
 
-def open_page ():
-    with sync_playwright() as p:
+async def open_page (url):
+    async with async_playwright() as p:
         try:
-            browser = p.firefox.launch(headless=False)
-            page = browser.new_page()
+            browser = await p.firefox.launch(headless=False)
+            page = await browser.new_page()
             logging.info(f"🌐 Opening page: {url}")
-            page.goto(url, timeout=60000, wait_until="networkidle")
+            await page.goto(url, timeout=60000, wait_until="networkidle")
 
-            full_title = page.title()
+            full_title = await page.title()
             title_split = full_title.split('|')
             title = title_split[1].strip()
             chapter = "".join(char for char in (title_split[0].strip().replace('.', '-')) if char.isdigit() or char == '-')
 
             # Wait for images that belong to the reader (adjust selector if needed)
-            page.wait_for_selector("img", timeout=30000)
+            await page.wait_for_selector("img", timeout=30000)
 
             #forward cookies
-            cookies = page.context.cookies()
+            cookies = await page.context.cookies()
             cookie_dict = {c['name']: c['value'] for c in cookies}
 
             #move mouse randomly
-            page.mouse.move(random.randint(0, 800), random.randint(0, 600))
+            await page.mouse.move(random.randint(0, 800), random.randint(0, 600))
 
             # Extract all image src attributes
-            image_urls = page.eval_on_selector_all("img", "els => els.map(e => e.src)")
-            browser.close()
+            image_urls = await page.eval_on_selector_all("img", "els => els.map(e => e.src)")
+            await browser.close()
 
             return title, chapter, cookie_dict, image_urls
         except Exception as e:
             logging.error(f"❌ Failed to open page: {e}")
             raise
 
-def download_images ():
+async def download_images (url, chapter, cookie_dict, image_urls):
+    images = []
     if not image_urls:
         logging.warning("⚠️ No images to download")
         return
@@ -101,13 +99,15 @@ def download_images ():
             img.convert("RGB").save(path, "PNG", quality=100)
             images.append(path)
 
-            # Sleep randomly to avoid being flagged
-            time.sleep(random.uniform(1.5, 3.5))
+            # # Sleep randomly to avoid being flagged
+            # time.sleep(random.uniform(1.5, 3.5))
 
         except Exception as e:
             print(f"❌ Error downloading {img_url}: {e}")
 
-def save_cbz ():
+    return images
+
+def save_cbz (title, chapter, images):
     if not images:
         logging.warning("⚠️ No valid images to save.")
         return
@@ -137,16 +137,14 @@ def cleanup():
     shutil.rmtree(temp_dir, ignore_errors=True)
     return
 
-def run():
-    global title, chapter, cookie_dict, image_urls
+async def run(url):
     try:
-        title, chapter, cookie_dict, image_urls = open_page()
-        download_images()
-        return save_cbz()
+        title, chapter, cookie_dict, image_urls = await open_page(url)
+        images = await download_images(url, chapter, cookie_dict, image_urls)
+        return save_cbz(title, chapter, images)
     finally:
         cleanup()
 
 if __name__ == "__main__":
     url = input("Enter page URL: ").strip()
-    # fetch_chapter_images(url)
-    run()
+    asyncio.run(run(url))
