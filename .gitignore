@@ -1,0 +1,8 @@
+venv/
+ENV/
+env/
+.venv/
+.out/
+out/
+build/
+dist/
