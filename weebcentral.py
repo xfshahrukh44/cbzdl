@@ -123,7 +123,7 @@ def save_cbz (title, chapter, images):
     cbz_path = os.path.join(output_dir, cbz_name)
 
     with zipfile.ZipFile(cbz_path, "w") as cbz:
-        for path in images:
+        for path in sorted(images):
             cbz.write(path, os.path.basename(path))
 
     #clear temp directory
